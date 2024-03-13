@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 
 #define Split '/'
-#define NBuckets 1001
 
 #define isDir(node) S_ISDIR((node)->mode)
 #define isFile(node) S_ISREG((node)->mode)

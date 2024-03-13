@@ -171,6 +171,18 @@ int ramReleasedir(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
+bool isValidRename(const char* path, const char* newpath) {
+    size_t n = strlen(path);
+    if (strncmp(path, newpath, n) == 0 && strlen(newpath) > n) {
+        // path is a prefix of newpath
+        if (newpath[n] == Split) return false;
+    }
+    // . or .. are not allowed in this
+    if (strchr(newpath, '.') || strchr(path, '.'))
+        return false;
+    return true;
+}
+
 /// Rename a file
 // both path and newpath are fs-relative
 int ramRename(const char *path, const char *newpath) {
@@ -178,12 +190,8 @@ int ramRename(const char *path, const char *newpath) {
     inode* node = pathfind(path, fs->root);
     if (!node) return -errno;
 
-    size_t n = strlen(path);
-    // prefix check
-    if (strncmp(path, newpath, n) == 0 && strlen(newpath) > n) return -EINVAL;
-    // . or .. are not allowed in this
-    if (strchr(newpath, '.') || strchr(path, '.')) return -EINVAL;
-    
+    if (!isValidRename(path, newpath)) return -EINVAL;
+
     if ((node = pathfind(newpath, fs->root))) {
         if (isDir(node)) return -EISDIR; // will not recursively delete whole direcoty
         bool ok = releaseNode(newpath, fs->root);
@@ -259,10 +267,10 @@ int ramWrite(const char *path, const char *buf, size_t size, off_t offset, struc
     if (isDir(node)) return -EISDIR;
 
     if (offset + size > node->size) {
-        char* data = realloc(node->data, size);
+        char* data = realloc(node->data, offset + size);
         if (!data) return -ENOSPC;
         node->data = data;
-        node->size = (uint)size;
+        node->size = (uint)(size + offset);
     }
     memcpy((char*)node->data + offset, buf, size);
 
